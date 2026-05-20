@@ -28,9 +28,9 @@
 <body>
   <div class="container">
     <h1>Franklin Create MVP</h1>
-    <p>Complete the sample questionnaire, then submit your answers to see a simple result summary.</p>
+    <p>Answer one question at a time. Each response moves you to the next page.</p>
 
-    <div id="conversation" class="conversation"></div>
+    <div id="progress" class="progress"></div>
 
     <form id="questionnaire-form">
       <div id="question-card" class="question"></div>
@@ -47,6 +47,11 @@
     let questions = [];
     let currentIndex = 0;
     const answers = [];
+
+    function updateProgress() {
+      const progress = document.getElementById('progress');
+      progress.textContent = `Question ${currentIndex + 1} of ${questions.length}`;
+    }
 
     function renderQuestion(q) {
       const container = document.getElementById('question-card');
@@ -77,15 +82,7 @@
 
       const button = document.getElementById('submit-button');
       button.textContent = currentIndex === questions.length - 1 ? 'Finish' : 'Next';
-    }
-
-    function appendMessage(role, text) {
-      const conv = document.getElementById('conversation');
-      const message = document.createElement('div');
-      message.className = `message ${role}`;
-      message.innerHTML = `<div class="message-text">${text}</div>`;
-      conv.appendChild(message);
-      conv.scrollTop = conv.scrollHeight;
+      updateProgress();
     }
 
     function collectAnswer() {
@@ -112,7 +109,6 @@
       const response = await fetch(`${backendUrl}/api/questions`);
       questions = await response.json();
       currentIndex = 0;
-      appendMessage('bot', 'Welcome! I will ask you a few questions one by one.');
       renderQuestion(questions[currentIndex]);
     }
 
@@ -120,20 +116,19 @@
       event.preventDefault();
       const answer = collectAnswer();
       if (!answer.answer) {
+        const card = document.getElementById('question-card');
+        card.insertAdjacentHTML('beforeend', '<p class="hint" style="color:#b91c1c;">Please answer the question before continuing.</p>');
         return;
       }
 
       answers.push(answer);
-      appendMessage('user', answer.answer);
 
       if (currentIndex < questions.length - 1) {
         currentIndex += 1;
-        appendMessage('bot', 'Thanks. Here is the next question:');
         renderQuestion(questions[currentIndex]);
         return;
       }
 
-      appendMessage('bot', 'Great, submitting your answers now...');
       const response = await fetch(`${backendUrl}/api/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -150,9 +145,8 @@
         <p>${result.message}</p>
       `;
 
-      appendMessage('bot', 'All done! Your answers are submitted.');
-      document.getElementById('submit-button').disabled = true;
-      document.getElementById('question-card').style.display = 'none';
+      document.getElementById('questionnaire-form').style.display = 'none';
+      document.getElementById('progress').style.display = 'none';
     });
 
     loadQuestions().catch(error => {
