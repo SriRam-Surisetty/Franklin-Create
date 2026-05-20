@@ -3,20 +3,23 @@
 A clean MVP for a SOC2-style questionnaire prototype.
 
 ## Overview
-This repository contains a minimal FastAPI backend and a tiny static frontend. The project is built to run locally with Docker Compose.
+This repository contains a minimal FastAPI backend and an Open WebUI frontend framework. Open WebUI is included as a Docker service, but no Ollama model runner is connected yet.
 
-## Run (recommended)
+## Build and run
 From the repository root:
 
 ```bash
-docker compose up --build
+docker compose build
+docker compose up
 ```
 
 Then open the frontend at `http://localhost:3000`.
 
 ### Services
 - Backend API: `http://localhost:8000`
-- Frontend: `http://localhost:3000`
+- Open WebUI frontend: `http://localhost:3000`
+
+Open WebUI is configured as the UI layer via `ghcr.io/open-webui/open-webui:main`. The UI starts with the framework in place, and the model backend can be connected later by setting `OLLAMA_BASE_URL`, `OPENAI_API_KEY`, or another supported runner.
 
 ## Run locally without Docker
 
@@ -32,22 +35,11 @@ python main.py
 
 The backend will run on `http://0.0.0.0:8000`.
 
-### Frontend
-
-```bash
-python -m http.server 3000 --directory frontend
-```
-
-Open `http://localhost:3000` in your browser.
-
 ## Project contents
 - `backend/` — FastAPI app and Dockerfile
-- `frontend/` — static HTML frontend, Dockerfile, questionnaire content
-- `docker-compose.yml` — local development compose stack
-
-## Test questionnaire
-The sample questionnaire is available at `frontend/questionnaire.md`.
+- `docker-compose.yml` — local development compose stack with Open WebUI frontend
 
 ## Notes
-- This MVP does not require Ollama or Qdrant.
+- Open WebUI is included as the frontend framework, but no Ollama or other model endpoint is configured yet.
 - Use `docker compose down` to stop and remove containers.
+- Connect a model later by updating `docker-compose.yml` with `OLLAMA_BASE_URL`, `OPENAI_API_KEY`, or another supported runtime.
