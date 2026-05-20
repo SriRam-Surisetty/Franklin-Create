@@ -15,6 +15,14 @@
     .question { margin-top: 20px; }
     .option { margin-top: 8px; }
     .link { margin-top: 12px; display: inline-block; }
+    .conversation { margin-top: 20px; max-height: 400px; overflow-y: auto; }
+    .message { margin-top: 16px; display: flex; }
+    .message.bot { justify-content: flex-start; }
+    .message.user { justify-content: flex-end; }
+    .message-text { max-width: 80%; padding: 14px 18px; border-radius: 20px; line-height: 1.5; }
+    .message.bot .message-text { background: #e0e7ff; color: #1e293b; border-bottom-left-radius: 4px; }
+    .message.user .message-text { background: #2563eb; color: white; border-bottom-right-radius: 4px; }
+    .hint { margin-top: 10px; font-size: 0.95rem; color: #475569; }
   </style>
 </head>
 <body>
@@ -22,9 +30,11 @@
     <h1>Franklin Create MVP</h1>
     <p>Complete the sample questionnaire, then submit your answers to see a simple result summary.</p>
 
+    <div id="conversation" class="conversation"></div>
+
     <form id="questionnaire-form">
-      <div id="questions"></div>
-      <button type="submit">Submit Answers</button>
+      <div id="question-card" class="question"></div>
+      <button id="submit-button" type="submit">Next</button>
     </form>
 
     <div id="output" class="results" style="display:none;"></div>
@@ -34,72 +44,96 @@
 
   <script>
     const backendUrl = 'http://localhost:8000';
+    let questions = [];
+    let currentIndex = 0;
+    const answers = [];
+
+    function renderQuestion(q) {
+      const container = document.getElementById('question-card');
+      container.innerHTML = `<h2>${q.id}. ${q.text}</h2>`;
+      container.dataset.questionId = q.id;
+      container.dataset.questionType = q.type;
+
+      if (q.type === 'text') {
+        container.innerHTML += `<textarea id="answer-input" rows="4" placeholder="Type your answer..." required></textarea>`;
+      } else if (q.type === 'single') {
+        q.options.forEach(option => {
+          container.innerHTML += `
+            <label class="option">
+              <input type="radio" name="answer" value="${option}" required /> ${option}
+            </label>
+          `;
+        });
+      } else if (q.type === 'multi') {
+        q.options.forEach(option => {
+          container.innerHTML += `
+            <label class="option">
+              <input type="checkbox" name="answer" value="${option}" /> ${option}
+            </label>
+          `;
+        });
+        container.innerHTML += `<p class="hint">Select one or more options, then click Next.</p>`;
+      }
+
+      const button = document.getElementById('submit-button');
+      button.textContent = currentIndex === questions.length - 1 ? 'Finish' : 'Next';
+    }
+
+    function appendMessage(role, text) {
+      const conv = document.getElementById('conversation');
+      const message = document.createElement('div');
+      message.className = `message ${role}`;
+      message.innerHTML = `<div class="message-text">${text}</div>`;
+      conv.appendChild(message);
+      conv.scrollTop = conv.scrollHeight;
+    }
+
+    function collectAnswer() {
+      const card = document.getElementById('question-card');
+      const questionId = Number(card.dataset.questionId);
+      const questionType = card.dataset.questionType;
+      let answerValue = '';
+
+      if (questionType === 'text') {
+        const textarea = document.getElementById('answer-input');
+        answerValue = textarea.value.trim();
+      } else if (questionType === 'single') {
+        const selected = document.querySelector('input[name="answer"]:checked');
+        answerValue = selected ? selected.value : '';
+      } else if (questionType === 'multi') {
+        const checked = Array.from(document.querySelectorAll('input[name="answer"]:checked')).map(i => i.value);
+        answerValue = checked.join(', ');
+      }
+
+      return { question_id: questionId, answer: answerValue };
+    }
 
     async function loadQuestions() {
       const response = await fetch(`${backendUrl}/api/questions`);
-      const questions = await response.json();
-      const container = document.getElementById('questions');
-      container.innerHTML = '';
-
-      questions.forEach(q => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'question';
-        wrapper.innerHTML = `<h2>${q.id}. ${q.text}</h2>`;
-
-        if (q.type === 'text') {
-          wrapper.innerHTML += `<textarea name="question-${q.id}" rows="3" placeholder="Your answer..."></textarea>`;
-        } else if (q.type === 'single') {
-          q.options.forEach(option => {
-            wrapper.innerHTML += `
-              <label class="option">
-                <input type="radio" name="question-${q.id}" value="${option}" required /> ${option}
-              </label>
-            `;
-          });
-        } else if (q.type === 'multi') {
-          q.options.forEach(option => {
-            wrapper.innerHTML += `
-              <label class="option">
-                <input type="checkbox" name="question-${q.id}" value="${option}" /> ${option}
-              </label>
-            `;
-          });
-        }
-
-        container.appendChild(wrapper);
-      });
+      questions = await response.json();
+      currentIndex = 0;
+      appendMessage('bot', 'Welcome! I will ask you a few questions one by one.');
+      renderQuestion(questions[currentIndex]);
     }
 
     document.getElementById('questionnaire-form').addEventListener('submit', async event => {
       event.preventDefault();
-      const form = event.target;
-      const formData = new FormData(form);
-      const questions = document.querySelectorAll('.question');
-      const answers = [];
+      const answer = collectAnswer();
+      if (!answer.answer) {
+        return;
+      }
 
-      questions.forEach(q => {
-        const id = q.querySelector('h2').textContent.split('.')[0];
-        const inputs = q.querySelectorAll('input, textarea');
-        const values = [];
+      answers.push(answer);
+      appendMessage('user', answer.answer);
 
-        inputs.forEach(input => {
-          if (input.type === 'checkbox' && input.checked) {
-            values.push(input.value);
-          }
-          if (input.type === 'radio' && input.checked) {
-            values.push(input.value);
-          }
-          if (input.tagName === 'TEXTAREA') {
-            values.push(input.value.trim());
-          }
-        });
+      if (currentIndex < questions.length - 1) {
+        currentIndex += 1;
+        appendMessage('bot', 'Thanks. Here is the next question:');
+        renderQuestion(questions[currentIndex]);
+        return;
+      }
 
-        answers.push({
-          question_id: Number(id),
-          answer: values.join(values.length > 1 ? ', ' : '')
-        });
-      });
-
+      appendMessage('bot', 'Great, submitting your answers now...');
       const response = await fetch(`${backendUrl}/api/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -115,11 +149,16 @@
         <p><strong>Percentage:</strong> ${result.percentage}%</p>
         <p>${result.message}</p>
       `;
+
+      appendMessage('bot', 'All done! Your answers are submitted.');
+      document.getElementById('submit-button').disabled = true;
+      document.getElementById('question-card').style.display = 'none';
     });
 
     loadQuestions().catch(error => {
-      document.getElementById('output').style.display = 'block';
-      document.getElementById('output').textContent = 'Unable to load questions. Please make sure the backend is running on http://localhost:8000.';
+      const output = document.getElementById('output');
+      output.style.display = 'block';
+      output.textContent = 'Unable to load questions. Please make sure the backend is running on http://localhost:8000.';
     });
   </script>
 </body>
