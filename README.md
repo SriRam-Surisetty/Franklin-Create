@@ -37,7 +37,12 @@ The backend will run on `http://0.0.0.0:8000`.
 
 ## Project contents
 - `backend/` — FastAPI app and Dockerfile
+- `landing/` — static marketing/demo landing page
 - `docker-compose.yml` — local development compose stack with Open WebUI frontend
+
+## Landing page
+
+Open `landing/index.html` in a browser to click through the product landing page and demo preview. The video modal currently uses a placeholder poster image; replace that modal content with an MP4 or hosted embed when a recorded walkthrough is ready.
 
 ## Notes
 - Open WebUI is included as the frontend framework, but no Ollama or other model endpoint is configured yet.
